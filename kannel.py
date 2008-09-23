@@ -1,7 +1,8 @@
 #!/usr/bin/env python
+# vim:tabstop=4:noexpandtab
 
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-import cgi, urlparse
+import cgi, urlparse, urllib, re
 
 
 class SmsReceiver():
@@ -40,25 +41,66 @@ class SmsReceiver():
 			pass
 	
 	
-	def __init__(self, receiver):
+	def __init__(self, receiver, port=4500):
 		handler = self.RequestHandler
-		self.serv = HTTPServer(("", 4500), handler)
+		self.serv = HTTPServer(("", port), handler)
 		self.serv.receiver = receiver
 	
 	def run(self):
 		self.serv.serve_forever()
 
 
+class SmsSender():
+	def __init__(self, username, password, server="localhost", port=13013):
+		self.un = username
+		self.pw = password
+		self.server = server
+		self.port = port
+	
+	def send(self, dest, message):
+
+		# strip any junk from the destination -- the exact
+		# characters allowed vary wildy between installations
+		# and networks, so we'll play it safe here
+		dest = re.compile('\D').sub("", dest)
+		
+		# urlencode to make special chars
+		# safe to embed in the kannel url
+		msg_enc = urllib.quote(message)
+		
+		# send the sms to kannel via a very
+		# unpleasent-looking HTTP GET request
+		# (which is a flagrant violation of the
+		# HTTP spec - this should be POST!)
+		res = urllib.urlopen(
+			"http://%s:%d/cgi-bin/sendsms?username=%s&password=%s&to=%s&text=%s"\
+			% (self.server, self.port, self.un, self.pw, dest, msg_enc)
+		).read()
+		
+		# for now, just return a boolean to show whether
+		# kannel accepted the sms or not. todo: raise an
+		# exception with the error message upon failure
+		return res.startswith("0: Accepted")
 
 
-# if this is invoked directly, test things out by
-# listening for SMSs, and printing them to stdout
+
+
+# if this is invoked directly, test things out by listening
+# for incomming SMSs, and relaying them to a test number.
+# obviously, for this to work, the kannel user + password 
+# must be correct (see /etc/kannel/kannel.conf)
 if __name__ == "__main__":
+	
+	dest = raw_input("Please enter a phone number to receive SMS: ").strip()
+	sender = SmsSender(username="mobile", password="mobile")
+
 	class TestReceiver():
 		def iGotAnSMS(self, caller, msg):
-			print "SMS from %s: %s" % (caller, msg)
+			msg = "%s says: %s" % (caller, msg)
+			sender.send(dest, msg)
+			print msg
 	
 	tr = TestReceiver()
-	print "Waiting for SMS..."
+	print "Waiting for incomming SMS..."
 	SmsReceiver(tr.iGotAnSMS).run()
 
