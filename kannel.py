@@ -8,31 +8,40 @@ import cgi, urlparse, urllib, re
 class SmsReceiver():
 	class RequestHandler(BaseHTTPRequestHandler):
 		def do_GET(self):
-			# all responses from this handler are pretty much the
-			# same - an http status and message - so let's abstract it!
-			def respond(code, message):
-				self.send_response(code)
-				self.end_headers()
+			try:
+				# all responses from this handler are pretty much the
+				# same - an http status and message - so let's abstract it!
+				def respond(code, message=None):
+					self.send_response(code)
+					self.end_headers()
 				
-				# recycle the full HTTP status message if none were provided
-				if message is None: message = self.responses[code][0]
-				self.wfile.write(message)
+					# recycle the full HTTP status message if none were provided
+					if message is None: message = self.responses[code][0]
+					self.wfile.write(message)
 			
 			
-			# explode the URI to pluck out the
-			# query string as a dictionary
-			parts = urlparse.urlsplit(self.path)
-			vars = cgi.parse_qs(parts[3])
+				# explode the URI to pluck out the
+				# query string as a dictionary
+				parts = urlparse.urlsplit(self.path)
+				vars = cgi.parse_qs(parts[3])
 			
 			
-			# if this event is valid, then thank kannel, and
-			# invoke the receiver function with the sms data
-			if vars.has_key("callerid") and vars.has_key("message"):
-				self.server.receiver(vars["callerid"][0], vars["message"][0])
-				respond(200, "SMS Received OK")
+				# if this event is valid, then thank kannel, and
+				# invoke the receiver function with the sms data
+				if vars.has_key("callerid") and vars.has_key("message"):
+					caller = re.compile('\D').sub("", vars["callerid"][0])
+					self.server.receiver(caller, vars["message"][0])
+					respond(200, "SMS Received OK")
 			
-			# the request wasn't valid :(
-			else: respond(400)
+				# the request wasn't valid :(
+				else: respond(400)
+			
+			# something went wrong during the
+			# request (probably within the receiver),
+			# so cause an internal server error
+			except:
+				respond(500)
+				raise
 		
 		
 		# we don't need to see every request in the console, since the
