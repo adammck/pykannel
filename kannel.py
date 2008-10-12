@@ -18,6 +18,7 @@ class SmsReceiver():
 					# recycle the full HTTP status message if none were provided
 					if message is None: message = self.responses[code][0]
 					self.wfile.write(message)
+					self.wfile.close()
 			
 			
 				# explode the URI to pluck out the
@@ -28,8 +29,8 @@ class SmsReceiver():
 			
 				# if this event is valid, then thank kannel, and
 				# invoke the receiver function with the sms data
-				if vars.has_key("callerid") and vars.has_key("message"):
-					caller = re.compile('\D').sub("", vars["callerid"][0])
+				if vars.has_key("sender") and vars.has_key("message"):
+					caller = re.compile('\D').sub("", vars["sender"][0])
 					self.server.receiver(caller, vars["message"][0])
 					respond(200, "SMS Received OK")
 			
@@ -66,7 +67,7 @@ class SmsSender():
 		self.server = server
 		self.port = port
 	
-	def send(self, dest, message):
+	def send(self, dest, message, buffer=False):
 
 		# strip any junk from the destination -- the exact
 		# characters allowed vary wildy between installations
@@ -82,7 +83,7 @@ class SmsSender():
 		# (which is a flagrant violation of the
 		# HTTP spec - this should be POST!)
 		res = urllib.urlopen(
-			"http://%s:%d/cgi-bin/sendsms?username=%s&password=%s&to=%s&text=%s"\
+			"http://%s:%d/cgi-bin/sendsms?username=%s&password=%s&to=%s&from=&text=%s"\
 			% (self.server, self.port, self.un, self.pw, dest, msg_enc)
 		).read()
 		
@@ -101,13 +102,13 @@ class SmsSender():
 if __name__ == "__main__":
 	
 	dest = raw_input("Please enter a phone number to receive SMS: ").strip()
-	sender = SmsSender(username="mobile", password="mobile")
+	sender = SmsSender(username="user", password="pass")
+	sender.send(dest, "Test message")
 
 	class TestReceiver():
 		def iGotAnSMS(self, caller, msg):
 			msg = "%s says: %s" % (caller, msg)
 			sender.send(dest, msg)
-			print msg
 	
 	tr = TestReceiver()
 	print "Waiting for incomming SMS..."
