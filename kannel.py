@@ -91,6 +91,13 @@ class SmsSender():
 		# kannel accepted the sms or not. todo: raise an
 		# exception with the error message upon failure
 		return res.startswith("0: Accepted")
+	
+	
+	def flush(self):
+		# oops! pykannel only pretends to
+		# buffer messages right now, since
+		# there's no real reason to do so
+		pass
 
 
 
