@@ -66,8 +66,15 @@ class SmsSender():
 		self.pw = password
 		self.server = server
 		self.port = port
-	
+		self.buffer = []
+		
 	def send(self, dest, message, buffer=False):
+		
+		# if this message should be bufferred,
+		# then stash it until self.flush is called
+		if buffer:
+			self.buffer.append((dest, msg))
+			return True
 
 		# strip any junk from the destination -- the exact
 		# characters allowed vary wildy between installations
@@ -82,10 +89,15 @@ class SmsSender():
 		# unpleasent-looking HTTP GET request
 		# (which is a flagrant violation of the
 		# HTTP spec - this should be POST!)
-		res = urllib.urlopen(
-			"http://%s:%d/cgi-bin/sendsms?username=%s&password=%s&to=%s&from=&text=%s"\
-			% (self.server, self.port, self.un, self.pw, dest, msg_enc)
-		).read()
+		try:
+			res = urllib.urlopen(
+				"http://%s:%d/cgi-bin/sendsms?username=%s&password=%s&to=%s&from=&text=%s"\
+				% (self.server, self.port, self.un, self.pw, dest, msg_enc)
+			).read()
+
+		# couldn't connect to kannel
+		except IOError:
+			return False
 		
 		# for now, just return a boolean to show whether
 		# kannel accepted the sms or not. todo: raise an
@@ -94,10 +106,11 @@ class SmsSender():
 	
 	
 	def flush(self):
-		# oops! pykannel only pretends to
-		# buffer messages right now, since
-		# there's no real reason to do so
-		pass
+		# send any buffered messages. no magic here...
+		# (the SmsApplication library removes duplicates)
+		for tuple in self.buffer:
+			dest, msg = tuple
+			self.send(dest, msg, False)
 
 
 
