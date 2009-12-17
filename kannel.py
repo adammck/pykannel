@@ -61,9 +61,11 @@ class SmsReceiver():
 
 
 class SmsSender():
-	def __init__(self, username, password, server="localhost", port=13013):
+	def __init__(self, username, password, charset="utf-8", coding=2, server="localhost", port=13013):
 		self.un = username
 		self.pw = password
+		self.charset = charset
+		self.coding = coding
 		self.server = server
 		self.port = port
 		self.buffer = []
@@ -91,8 +93,8 @@ class SmsSender():
 		# HTTP spec - this should be POST!)
 		try:
 			res = urllib.urlopen(
-				"http://%s:%d/cgi-bin/sendsms?username=%s&password=%s&to=%s&from=&text=%s"\
-				% (self.server, self.port, self.un, self.pw, dest, msg_enc)
+				"http://%s:%d/cgi-bin/sendsms?username=%s&password=%s&charset=%s&coding=%s&to=%s&from=&text=%s"\
+				% (self.server, self.port, self.un, self.pw, self.charset, self.coding, dest, msg_enc)
 			).read()
 
 		# couldn't connect to kannel
@@ -133,4 +135,3 @@ if __name__ == "__main__":
 	tr = TestReceiver()
 	print "Waiting for incomming SMS..."
 	SmsReceiver(tr.iGotAnSMS).run()
-
